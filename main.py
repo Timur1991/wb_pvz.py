@@ -1,3 +1,5 @@
+import os
+
 import requests
 import json
 import pandas
@@ -26,18 +28,35 @@ def get_coord(domen):
     r = requests.get(url, headers=headers)
     data = r.json()
     # """сохраняем id  с координатами  в json"""
-    with open('wild_points_coord.json', 'w', encoding='UTF-8') as file:
-        json.dump(data, file, indent=2, ensure_ascii=False)
-        print(f'Данные сохранены в wild_points_coord.json')
+    # with open('wild_points_coord.json', 'w', encoding='UTF-8') as file:
+    #     json.dump(data, file, indent=2, ensure_ascii=False)
+    #     print(f'Данные сохранены в wild_points_coord.json')
     data_list = []
     for d in data['value']['pickups']:
-        id = d['id']
-        address = d['address']
-        coordinates1 = d['coordinates'][0]
-        coordinates2 = d['coordinates'][1]
+        id = d.get('id')
+        name = d.get('name')
+        address = d.get('address')
+        coordinates1 = d.get('coordinates')[0]
+        coordinates2 = d.get('coordinates')[1]
+        workTime = d.get('workTime', '')
+        status = ''
+        deliveryPrice = ''
+        if d.get('status'):
+            if d.get('status') == 2:
+                status = 'Платная доставка'
+                deliveryPrice = d.get('deliveryPrice')
+            elif d.get('status') == 3:
+                status = 'Возможны очереди'
+            elif d.get('status') == 1:
+                status = 'Перегружен (доставка недоступна)'
+
         data_list.append({
             'id': int(id),
+            'name': name,
+            'status': status,
+            'deliveryPrice': deliveryPrice,
             'address': address,
+            'workTime': workTime,
             'coordinates': f'{coordinates1},{coordinates2}'
         })
     print("[INFO] координаты точек выдачи получены")
@@ -55,21 +74,18 @@ def get_points(payload: list, domen: str):
     data = response.json()
     # print(data)
     # """сохраняем точки выдачи в json"""
-    with open('wild_points.json', 'w', encoding='UTF-8') as file:
-        json.dump(data, file, indent=2, ensure_ascii=False)
-        print(f'Данные сохранены в wild_points.json')
+    # with open('wild_points.json', 'w', encoding='UTF-8') as file:
+    #     json.dump(data, file, indent=2, ensure_ascii=False)
+    #     print(f'Данные сохранены в wild_points.json')
     data_points_list = []
     # print(len(data['value']))
     for d in data['value']:
-        # print(d)
-        # address = data['value'][d]['address']
         try:
             wayinfo = data['value'][d]['wayInfo']
         except:
             wayinfo = ''
         data_points_list.append({
             'id': int(d),
-        #     'address': address,
             'wayInfo': wayinfo.replace('\n', ' ')
         })
 
@@ -86,6 +102,7 @@ def merge_data(data1: list, data2: list):
     df = pandas.merge(df1, df2, how='left', left_on='id', right_on="id")
 
     writer = pandas.ExcelWriter('wb_points.xlsx', engine='xlsxwriter')
+    df = df[['id', 'name', 'address', 'wayInfo', 'status', 'deliveryPrice', 'workTime', 'coordinates']]
     df.to_excel(writer, 'data', index=False)
     # df.to_json(writer)
     writer.close()
@@ -115,7 +132,7 @@ def merge_data(data1: list, data2: list):
 #     writer.save()
 #     print('Все сохранено в merge_data.xlsx')
 
-
+# """для exe приложения(чтобы сделать exe файл - pip install auto_py_to_exe для установки, для запуска auto-py-to-exe)"""
 def main(domen):
     """получаем все координаты и id пунктов выдачи"""
     data_list_coords = get_coord(domen=domen)
@@ -132,6 +149,7 @@ def main(domen):
 
 if __name__ == '__main__':
     main('www.wildberries.ru')
+    os.system('pause')
     # возможные домены:
     # Россия www.wildberries.ru
     # Казахстан kz.wildberries.ru
